@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>遊戲動態排行榜與魔王挑戰模式 v3</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        .header-section { padding: 30px 0 15px 0; text-align: center; }
+        .header-title {
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.3rem;
+            margin-bottom: 8px;
+        }
+
+        .status-bar {
+            display: inline-flex; align-items: center; gap: 10px;
+            background: rgba(30, 41, 59, 0.8); border: 1px solid var(--card-border);
+            padding: 6px 16px; border-radius: 30px; font-size: 0.85rem; color: var(--text-sub);
+        }
+
+        .pulse-dot {
+            width: 10px; height: 10px; background-color: #10b981; border-radius: 50%;
+            box-shadow: 0 0 8px #10b981; animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .url-control-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 16px 20px; margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 16px; padding: 20px; height: 100%; position: relative;
+        }
+
+        .stat-title { color: var(--text-sub); font-size: 0.9rem; font-weight: 600; }
+        .stat-value { font-size: 2.2rem; font-weight: 800; color: var(--accent-gold); }
+
+        .top3-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+        .top3-item {
+            display: flex; align-items: center; justify-content: space-between;
+            background: rgba(15, 23, 42, 0.6); border: 1px solid var(--card-border);
+            padding: 10px 14px; border-radius: 12px;
+        }
+        .top3-item-left { display: flex; align-items: center; gap: 12px; }
+
+        .rank-icon {
+            width: 28px; height: 28px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 0.85rem;
+        }
+        .rank-icon-1 { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+        .rank-icon-2 { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; border: 1px solid #cbd5e1; }
+        .rank-icon-3 { background: rgba(217, 119, 6, 0.2); color: #d97706; border: 1px solid #d97706; }
+
+        .top-player-name { font-weight: 600; font-size: 0.95rem; color: var(--text-main); }
+        .score-val-tag { font-weight: 700; color: #60a5fa; }
+        .acc-val-tag { font-weight: 700; color: #34d399; }
+
+        .leaderboard-section {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            border-radius: 20px; padding: 25px; margin-top: 25px;
+        }
+
+        .table-custom { color: var(--text-main); vertical-align: middle; }
+        .table-custom th { background-color: #0f172a; color: var(--text-sub); border-bottom: 2px solid var(--card-border); padding: 14px; }
+        .table-custom td { padding: 14px; border-bottom: 1px solid var(--card-border); }
+
+        .table-player-name {
+            color: #000000 !important; font-weight: 700; font-size: 1rem;
+            background-color: #ffffff; padding: 4px 10px; border-radius: 6px; display: inline-block;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .badge-accuracy { background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 5px 12px; border-radius: 20px; font-weight: 600; }
+        .badge-score { background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 5px 12px; border-radius: 20px; font-weight: 700; }
+
+        /* 魔王模式全螢幕 Overlay */
+        #boss-modal {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+            z-index: 99999; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+            box-sizing: border-box; overflow-y: auto;
+        }
+
+        .boss-container {
+            max-width: 800px; width: 100%; background: rgba(15, 23, 42, 0.92);
+            border: 2px solid #ef4444; box-shadow: 0 0 40px rgba(239, 68, 68, 0.4);
+            border-radius: 24px; padding: 30px; text-align: center; position: relative;
+        }
+
+        .boss-dialogue-bubble {
+            position: relative; background: rgba(30, 41, 59, 0.95);
+            border: 2px solid #f59e0b; border-radius: 16px; padding: 12px 20px;
+            color: #f8fafc; font-weight: 700; font-size: 1.15rem; max-width: 500px;
+            margin: 0 auto 15px auto; box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            min-height: 50px; display: flex; align-items: center; justify-content: center;
+        }
+
+        .boss-dialogue-bubble::after {
+            content: ''; position: absolute; bottom: -10px; left: 50%;
+            transform: translateX(-50%); border-width: 10px 10px 0; border-style: solid;
+            border-color: #f59e0b transparent; display: block; width: 0;
+        }
+
+        .boss-avatar-wrapper { position: relative; display: inline-block; margin: 10px 0 20px 0; min-height: 140px; }
+
+        .boss-avatar {
+            font-size: 7.5rem; filter: drop-shadow(0 0 25px rgba(239, 68, 68, 0.8));
+            animation: bossFloat 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes bossFloat {
+            0% { transform: translateY(0px) scale(1); }
+            100% { transform: translateY(-15px) scale(1.05); }
+        }
+
+        .boss-hit-anim { animation: bossHit 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) !important; }
+
+        @keyframes bossHit {
+            0% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 30px #ff0000) brightness(2); }
+            20% { transform: scale(1.2) rotate(-8deg) translateX(-15px); filter: drop-shadow(0 0 50px #ff0000) brightness(2.5); }
+            40% { transform: scale(0.85) rotate(8deg) translateX(15px); filter: drop-shadow(0 0 50px #ff0000) brightness(2.5); }
+            60% { transform: scale(1.1) rotate(-4deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .damage-float-num {
+            position: absolute; top: 20%; left: 50%; font-size: 3rem; font-weight: 900;
+            color: #ff2222; text-shadow: 0 0 10px #000, 0 0 20px #ff0000, 0 0 30px #ffaa00;
+            pointer-events: none; z-index: 1000; animation: floatDamage 1.5s ease-out forwards;
+        }
+
+        @keyframes floatDamage {
+            0% { opacity: 0; transform: translate(-50%, 20px) scale(0.5); }
+            20% { opacity: 1; transform: translate(-50%, -20px) scale(1.4); }
+            70% { opacity: 1; transform: translate(-50%, -60px) scale(1.1); }
+            100% { opacity: 0; transform: translate(-50%, -100px) scale(0.9); }
+        }
+
+        .hp-bar-outer {
+            background: #334155; border-radius: 20px; height: 32px; width: 100%;
+            overflow: hidden; position: relative; border: 2px solid #ef4444; margin: 15px 0;
+        }
+
+        .hp-bar-inner {
+            height: 100%; background: linear-gradient(90deg, #ef4444, #f59e0b); width: 100%;
+            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hp-text-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+        }
+
+        .victory-banner {
+            display: none; background: linear-gradient(135deg, #10b981, #059669); color: white;
+            padding: 20px; border-radius: 16px; font-size: 1.8rem; font-weight: 800; margin-top: 20px;
+        }
+
+        #confetti-canvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 100000; }
+        .btn-boss { background: linear-gradient(135deg, #dc2626, #991b1b); color: white; border: none; font-weight: 700; border-radius: 10px; padding: 6px 14px; }
+        .form-control, .form-select { background-color: #0f172a; border: 1px solid var(--card-border); color: var(--text-main); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-section">
+        <h1 class="header-title"><i class="fa-solid fa-trophy me-3"></i>遊戲動態排行榜</h1>
+        <div class="status-bar mt-2">
+            <span class="pulse-dot"></span>
+            <span>Google 試算表自動監測中 (每 5 秒同步)</span>
+            <span class="text-muted">|</span>
+            <span>最後更新: <strong id="last-updated-time">載入中...</strong></span>
+        </div>
+    </div>
+
+    <!-- 1. Google 試算表連結設定列 -->
+    <div class="url-control-card">
+        <label class="form-label text-secondary fw-bold mb-2"><i class="fa-solid fa-link me-2 text-primary"></i>Google 試算表 (Spreadsheet) 連結設定：</label>
+        <div class="input-group">
+            <input type="text" id="spreadsheet-url-input" class="form-control" value="https://docs.google.com/spreadsheets/d/11DfZe3j7fC0NoI3QKs4GyFPL7KX45wDLkyVpKUezI8w/edit?usp=sharing">
+            <button class="btn btn-primary fw-bold" onclick="updateSpreadsheetUrl()"><i class="fa-solid fa-arrows-rotate me-1"></i>套用與同步</button>
+            <button class="btn btn-outline-info fw-bold" onclick="openSpreadsheetLink()"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>開啟試算表</button>
+        </div>
+    </div>
+
+    <!-- 2. 頂部數據卡片 -->
+    <div class="row g-4 mb-3">
+        <div class="col-lg-4 col-md-12">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div class="stat-title"><i class="fa-solid fa-coins me-2 text-warning"></i>全部紀錄得分總和</div>
+                    <span class="badge bg-warning text-dark">SUM</span>
+                </div>
+                <div class="text-center py-2">
+                    <div class="stat-value" id="sum-score">0</div>
+                    <div class="text-secondary mt-1" id="total-records-count">共 0 筆紀錄</div>
+                </div>
+                <hr class="border-secondary my-3">
+                <div class="bg-dark p-3 rounded-3 border border-secondary">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-danger"><i class="fa-solid fa-dragon me-1"></i>魔王模式設定</span>
+                        <span class="badge bg-danger">Boss Mode</span>
+                    </div>
+                    
+                    <!-- 指定魔王選單 -->
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text bg-secondary text-light border-secondary">選擇魔王</span>
+                        <select id="boss-select-setting" class="form-select border-secondary text-light bg-dark" onchange="onBossSettingChange()">
+                            <option value="random">🎲 隨機魔王 (預設)</option>
+                        </select>
+                    </div>
+
+                    <!-- HP 設定 -->
+                    <div class="input-group input-group-sm mb-2">
+                        <span class="input-group-text bg-secondary text-light border-secondary">魔王 HP</span>
+                        <input type="number" id="boss-hp-input" class="form-control" value="1000" min="1">
+                    </div>
+                    <button class="btn btn-boss w-100" onclick="openBossMode()"><i class="fa-solid fa-skull me-2"></i>進入大魔王挑戰全螢幕</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div class="stat-title"><i class="fa-solid fa-crown me-2 text-warning"></i>最高得分 頭三甲</div>
+                    <span class="badge bg-primary">Top 3 Score</span>
+                </div>
+                <div id="top-score-list" class="top3-list"></div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+            <div class="stat-card">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div class="stat-title"><i class="fa-solid fa-bullseye me-2 text-success"></i>最高答對率 頭三甲</div>
+                    <span class="badge bg-success">Top 3 Acc</span>
+                </div>
+                <div id="top-acc-list" class="top3-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 排行榜表格 -->
+    <div class="leaderboard-section">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+            <h3 class="m-0 font-weight-bold"><i class="fa-solid fa-list-ol me-2 text-primary"></i>完整遊玩紀錄排行榜</h3>
+            <div class="d-flex gap-2 align-items-center">
+                <input type="text" id="search-input" class="form-control" placeholder="搜尋姓名或學號..." oninput="renderTable()">
+                <select id="sort-select" class="form-select" onchange="renderTable()" style="width: auto;">
+                    <option value="score">依得分排序 (高→低)</option>
+                    <option value="accuracy">依答對率排序 (高→低)</option>
+                    <option value="time">依耗時排序 (少→多)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-custom align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">排名</th>
+                        <th>玩家姓名與學號</th>
+                        <th>得分</th>
+                        <th>答對 / 總題數</th>
+                        <th>答對率</th>
+                        <th>耗時 (秒)</th>
+                        <th>遊玩日期</th>
+                    </tr>
+                </thead>
+                <tbody id="leaderboard-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 4. 全螢幕魔王挑戰畫面 -->
+<div id="boss-modal">
+    <div class="boss-container">
+        <button class="btn btn-outline-light btn-sm position-absolute top-0 end-0 m-3" onclick="closeBossMode()"><i class="fa-solid fa-xmark fs-5"></i> 離開關卡</button>
+        <button class="btn btn-outline-warning btn-sm position-absolute top-0 start-0 m-3" onclick="switchRandomBoss()"><i class="fa-solid fa-shuffle me-1"></i> 隨機更換魔王</button>
+
+        <h2 class="text-danger font-weight-bold mb-1"><i class="fa-solid fa-fire me-2"></i>終極大魔王挑戰 <i class="fa-solid fa-fire ms-2"></i></h2>
+        <div class="text-warning fw-bold fs-5 mb-2" id="boss-title-name">【暗黑滅世巨龍】</div>
+
+        <div class="boss-dialogue-bubble" id="boss-dialogue">
+            「卑微的人類，憑你們也想挑戰本尊？！」
+        </div>
+
+        <div class="boss-avatar-wrapper" id="boss-avatar-wrapper">
+            <i class="fa-solid fa-dragon boss-avatar" id="boss-icon" style="color: #ef4444;"></i>
+        </div>
+
+        <div class="hp-bar-outer">
+            <div class="hp-bar-inner" id="boss-hp-bar"></div>
+            <div class="hp-text-overlay" id="boss-hp-text">0 / 0 HP</div>
+        </div>
+
+        <div class="row g-3 my-2">
+            <div class="col-4">
+                <div class="p-2 bg-dark rounded border border-secondary">
+                    <div class="text-secondary small">魔王初始總血量</div>
+                    <div class="fw-bold fs-5 text-light" id="boss-max-hp-display">1000</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-2 bg-dark rounded border border-secondary">
+                    <div class="text-secondary small">團隊累積傷害 (得分)</div>
+                    <div class="fw-bold fs-5 text-warning" id="boss-damage-display">0</div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="p-2 bg-dark rounded border border-secondary">
+                    <div class="text-secondary small">魔王剩餘血量</div>
+                    <div class="fw-bold fs-5 text-danger" id="boss-remaining-hp-display">1000</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="victory-banner" id="victory-banner">
+            🎉 討伐成功！團隊得分達成，大魔王已被徹底擊敗！🏆
+        </div>
+    </div>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    let currentSpreadsheetId = '11DfZe3j7fC0NoI3QKs4GyFPL7KX45wDLkyVpKUezI8w';
+    let gameData = [];
+    let lastDataHash = "";
+    let isFirstLoad = true;
+    let victorySoundPlayed = false;
+    let lastTotalScore = -1;
+
+    // 多樣化魔王列表資料庫 (含大嘥鬼魔王)
+    const BOSS_DATABASE = [
+        {
+            id: "big_waster",
+            name: "【廚餘浪費魔王·大嘥鬼】",
+            icon: "fa-face-grimace",
+            color: "#84cc16",
+            taunts: {
+                100: "「吃不完就全部倒掉！點滿整桌食物才是霸氣，你們能拿我怎樣？！」",
+                75:  "「哼！這點打擊還比不上倒掉一桶好菜，繼續浪費吧，哈哈哈！」",
+                50:  "「等等... 你們居然開始『珍惜食物』搞零廚餘？！我的力量在減弱...」",
+                25:  "「可惡！別再做廚餘回收和惜食行動了！我的廚餘帝國要崩塌了——」",
+                10:  "「別... 別把飯吃光！至少給我留下一點點廚餘啊... 告急！告急！」",
+                0:   "「沒有浪費... 我就無法生存... 原來『珍惜食物』才是最強的武器... (消散)」"
+            }
+        },
+        {
+            id: "dragon",
+            name: "【暗黑滅世巨龍】",
+            icon: "fa-dragon",
+            color: "#ef4444",
+            taunts: {
+                100: "「卑微的人類，憑你們也想挑戰本尊？！」",
+                75:  "「哼！這點程度的抓癢，連我的龍鱗都穿不透！」",
+                50:  "「稍微有點意思了... 但別高興得太早！」",
+                25:  "「可惡的人類！竟然能把我逼到這種地步？！吼吼吼——」",
+                10:  "「不... 不可能！全軍準備防禦！吾絕不會倒下！」",
+                0:   "「吾乃滅世巨龍... 竟會敗在你們的團隊合作之下...」"
+            }
+        },
+        {
+            id: "demon",
+            name: "【地獄深淵魔王】",
+            icon: "fa-ghost",
+            color: "#a855f7",
+            taunts: {
+                100: "「歡迎來到地獄！你們的靈魂將成為我的收藏品！」",
+                75:  "「就這點能耐？連地獄火的火花都比你們強！」",
+                50:  "「喔？居然能撼動地獄王座，我承認你們有些實力！」",
+                25:  "「該死！地獄惡魔們，給我擋住他們！！」",
+                10:  "「我的魔界力量... 竟然在衰退？！不——」",
+                0:   "「地獄之火熄滅了... 這不可能......」"
+            }
+        },
+        {
+            id: "skull",
+            name: "【不朽骷髏王】",
+            icon: "fa-skull",
+            color: "#94a3b8",
+            taunts: {
+                100: "「喀嚦喀嚦... 又有一群無知的冒險者來送死了！」",
+                75:  "「我的骨骼堅若磐石，你們的攻擊毫無效果！」",
+                50:  "「骷髏軍團！聽我號令，發動反擊！」",
+                25:  "「我的骨架... 居然碎裂了？！這不可原諒！」",
+                10:  "「快... 快把散落的骨頭拼回去！快啊！」",
+                0:   "「碎成了粉末... 我... 還會重新組裝回來的...」"
+            }
+        },
+        {
+            id: "kraken",
+            name: "【深海邪神巨獸】",
+            icon: "fa-spaghetti-monster-flying",
+            color: "#0284c7",
+            taunts: {
+                100: "「沉入無盡的深海吧！沒有人能戰勝汪洋之怒！」",
+                75:  "「你們的努力就像大海中的一滴水，毫無意義！」",
+                50:  "「掀起海嘯！讓你們見識真正的海洋之力！」",
+                25:  "「咕嚕嚕... 竟然能傷到我的核心狂濤？！」",
+                10:  "「海浪正在退去... 我需要更多海水...」",
+                0:   "「邪神沉睡於深淵... 恭喜你們贏得了大海...」"
+            }
+        },
+        {
+            id: "mecha",
+            name: "【鋼鐵毀滅機械獸】",
+            icon: "fa-robot",
+            color: "#f59e0b",
+            taunts: {
+                100: "「警告：發現入侵者。啟動全武裝殲滅模式！」",
+                75:  "「裝甲損傷 5%... 自動修復系統啟動中。無效攻擊！」",
+                50:  "「警告！機體受到 50% 傷害。切換至極限超頻模式！」",
+                25:  "「危險！核心過熱！冷卻系統故障！警報！警報！」",
+                10:  "「系統嚴重損壞... 正在執行緊急防禦協定...」",
+                0:   "「嗶—嗶— 系統終止... 機械獸毀滅...」"
+            }
+        }
+    ];
+
+    let currentBoss = BOSS_DATABASE[0];
+
+    function initBossDropdown() {
+        const selectEl = document.getElementById('boss-select-setting');
+        selectEl.innerHTML = '<option value="random">🎲 隨機魔王 (預設)</option>';
+        BOSS_DATABASE.forEach(boss => {
+            const option = document.createElement('option');
+            option.value = boss.id;
+            option.innerText = boss.name;
+            selectEl.appendChild(option);
+        });
+    }
+
+    function onBossSettingChange() {
+        const selectedVal = document.getElementById('boss-select-setting').value;
+        if (selectedVal === 'random') {
+            switchRandomBoss();
+        } else {
+            const foundBoss = BOSS_DATABASE.find(b => b.id === selectedVal);
+            if (foundBoss) {
+                currentBoss = foundBoss;
+                updateBossUI();
+                updateBossStatus(false);
+            }
+        }
+    }
+
+    function switchRandomBoss() {
+        const randomIndex = Math.floor(Math.random() * BOSS_DATABASE.length);
+        currentBoss = BOSS_DATABASE[randomIndex];
+        updateBossUI();
+        updateBossStatus(false);
+    }
+
+    function updateBossUI() {
+        document.getElementById('boss-title-name').innerText = currentBoss.name;
+        const iconEl = document.getElementById('boss-icon');
+        iconEl.className = `fa-solid ${currentBoss.icon} boss-avatar`;
+        iconEl.style.color = currentBoss.color;
+    }
+
+    function extractSpreadsheetId(url) {
+        const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        return match ? match[1] : null;
+    }
+
+    function updateSpreadsheetUrl() {
+        const inputUrl = document.getElementById('spreadsheet-url-input').value.trim();
+        const extractedId = extractSpreadsheetId(inputUrl);
+        if (!extractedId) {
+            alert('無法解析無效的 Google 試算表網址！');
+            return;
+        }
+        currentSpreadsheetId = extractedId;
+        lastDataHash = "";
+        fetchSpreadsheetData();
+    }
+
+    function openSpreadsheetLink() {
+        const inputUrl = document.getElementById('spreadsheet-url-input').value.trim();
+        if (inputUrl) window.open(inputUrl, '_blank');
+    }
+
+    window.handleGvizResponse = function(response) {
+        if (!response || !response.table) return;
+        const rows = response.table.rows;
+        const newData = [];
+
+        rows.forEach(row => {
+            if (!row.c) return;
+            const c = row.c;
+            const name = c[1] ? (c[1].v || '') : '';
+            if (name !== '' && name !== '姓名') {
+                const score = c[3] ? (parseFloat(c[3].v) || 0) : 0;
+                const correct = c[4] ? (parseInt(c[4].v) || 0) : 0;
+                const total = c[5] ? (parseInt(c[5].v) || 0) : 0;
+                newData.push({
+                    date: String(c[0] ? (c[0].f || c[0].v || '') : ''),
+                    name: String(name),
+                    studentId: String(c[2] ? (c[2].v || '') : ''),
+                    score: score, correct: correct, total: total,
+                    accuracy: total > 0 ? (correct / total) : 0,
+                    time: parseInt(c[6] ? (c[6].v || 0) : 0)
+                });
+            }
+        });
+
+        const currentHash = JSON.stringify(newData);
+        if (currentHash !== lastDataHash) {
+            lastDataHash = currentHash;
+            gameData = newData;
+
+            const newTotalScore = gameData.reduce((sum, item) => sum + item.score, 0);
+            let damageDealt = 0;
+            if (lastTotalScore !== -1 && newTotalScore > lastTotalScore) {
+                damageDealt = newTotalScore - lastTotalScore;
+            }
+            lastTotalScore = newTotalScore;
+
+            calculateStats();
+            renderTable();
+            updateBossStatus(true, damageDealt);
+        }
+        document.getElementById('last-updated-time').innerText = new Date().toLocaleTimeString('zh-TW');
+    };
+
+    function fetchSpreadsheetData() {
+        const oldScript = document.getElementById('gviz-script');
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.id = 'gviz-script';
+        script.src = `https://docs.google.com/spreadsheets/d/${currentSpreadsheetId}/gviz/tq?tqx=responseHandler:handleGvizResponse&_=${new Date().getTime()}`;
+        document.body.appendChild(script);
+    }
+
+    function calculateStats() {
+        if (gameData.length === 0) return;
+        const totalScore = gameData.reduce((sum, item) => sum + item.score, 0);
+        document.getElementById('sum-score').innerText = totalScore.toLocaleString();
+        document.getElementById('total-records-count').innerText = `共 ${gameData.length} 筆遊玩紀錄`;
+
+        const sortedByScore = [...gameData].sort((a, b) => b.score - a.score);
+        renderTop3List('top-score-list', sortedByScore.slice(0, 3), 'score');
+
+        const sortedByAcc = [...gameData].sort((a, b) => b.accuracy - a.accuracy);
+        renderTop3List('top-acc-list', sortedByAcc.slice(0, 3), 'accuracy');
+    }
+
+    function renderTop3List(containerId, list, type) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        list.forEach((item, index) => {
+            const rankClass = index === 0 ? 'rank-icon-1' : (index === 1 ? 'rank-icon-2' : 'rank-icon-3');
+            const rankIcon = index === 0 ? '<i class="fa-solid fa-trophy"></i>' : (index + 1);
+            let valueDisplay = type === 'score'
+                ? `<span class="score-val-tag">${item.score} 分</span>`
+                : `<span class="acc-val-tag">${(item.accuracy * 100).toFixed(2)}% <small class="text-secondary">(${item.correct}/${item.total})</small></span>`;
+
+            const div = document.createElement('div');
+            div.className = 'top3-item';
+            div.innerHTML = `
+                <div class="top3-item-left">
+                    <div class="rank-icon ${rankClass}">${rankIcon}</div>
+                    <span class="top-player-name">${item.name}(${item.studentId})</span>
+                </div>
+                <div>${valueDisplay}</div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('leaderboard-body');
+        const search = document.getElementById('search-input').value.toLowerCase();
+        const sortBy = document.getElementById('sort-select').value;
+
+        let filteredData = gameData.filter(item => `${item.name}(${item.studentId})`.toLowerCase().includes(search));
+        filteredData.sort((a, b) => {
+            if (sortBy === 'score') return b.score - a.score;
+            if (sortBy === 'accuracy') return b.accuracy - a.accuracy;
+            if (sortBy === 'time') return a.time - b.time;
+        });
+
+        tbody.innerHTML = '';
+        filteredData.forEach((item, index) => {
+            const acc = (item.accuracy * 100).toFixed(2);
+            let rankBadge = `<span class="fw-bold text-secondary">${index + 1}</span>`;
+            if (index === 0) rankBadge = `<span class="badge bg-warning text-dark"><i class="fa-solid fa-crown me-1"></i>1</span>`;
+            else if (index === 1) rankBadge = `<span class="badge bg-secondary">2</span>`;
+            else if (index === 2) rankBadge = `<span class="badge bg-danger">3</span>`;
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${rankBadge}</td>
+                <td><span class="table-player-name">${item.name}(${item.studentId})</span></td>
+                <td><span class="badge-score">${item.score} 分</span></td>
+                <td>${item.correct} / ${item.total}</td>
+                <td><span class="badge-accuracy">${acc}%</span></td>
+                <td>${item.time} 秒</td>
+                <td class="text-secondary">${item.date}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function openBossMode() {
+        document.getElementById('boss-modal').style.display = 'flex';
+        const selectedVal = document.getElementById('boss-select-setting').value;
+        if (selectedVal === 'random') {
+            switchRandomBoss();
+        } else {
+            updateBossUI();
+            updateBossStatus(false);
+        }
+    }
+
+    function closeBossMode() {
+        document.getElementById('boss-modal').style.display = 'none';
+        stopConfetti();
+    }
+
+    function updateBossStatus(triggerAnim = false, damageAmount = 0) {
+        const maxHp = parseInt(document.getElementById('boss-hp-input').value) || 1000;
+        const totalDamage = gameData.reduce((sum, item) => sum + item.score, 0);
+        const remainingHp = Math.max(0, maxHp - totalDamage);
+        const hpPercent = Math.min(100, Math.max(0, (remainingHp / maxHp) * 100));
+
+        document.getElementById('boss-max-hp-display').innerText = maxHp.toLocaleString();
+        document.getElementById('boss-damage-display').innerText = totalDamage.toLocaleString();
+        document.getElementById('boss-remaining-hp-display').innerText = remainingHp.toLocaleString();
+
+        const hpBar = document.getElementById('boss-hp-bar');
+        hpBar.style.width = `${hpPercent}%`;
+        document.getElementById('boss-hp-text').innerText = `${remainingHp.toLocaleString()} / ${maxHp.toLocaleString()} HP (${hpPercent.toFixed(1)}%)`;
+
+        if (triggerAnim && damageAmount > 0 && document.getElementById('boss-modal').style.display === 'flex') {
+            triggerHitEffects(damageAmount);
+        }
+
+        updateBossDialogue(hpPercent, remainingHp);
+
+        const bossIcon = document.getElementById('boss-icon');
+        const victoryBanner = document.getElementById('victory-banner');
+
+        if (remainingHp <= 0) {
+            bossIcon.className = "fa-solid fa-skull-crossbones boss-avatar text-secondary";
+            victoryBanner.style.display = 'block';
+            if (!victorySoundPlayed && document.getElementById('boss-modal').style.display === 'flex') {
+                playVictoryFanfare();
+                startConfetti();
+                victorySoundPlayed = true;
+            }
+        } else {
+            bossIcon.className = `fa-solid ${currentBoss.icon} boss-avatar`;
+            bossIcon.style.color = currentBoss.color;
+            victoryBanner.style.display = 'none';
+            victorySoundPlayed = false;
+            stopConfetti();
+        }
+    }
+
+    function updateBossDialogue(hpPercent, remainingHp) {
+        const dialogueEl = document.getElementById('boss-dialogue');
+        const taunts = currentBoss.taunts;
+        let line = taunts[100];
+
+        if (remainingHp <= 0) {
+            line = taunts[0];
+        } else if (hpPercent <= 10) {
+            line = taunts[10];
+        } else if (hpPercent <= 25) {
+            line = taunts[25];
+        } else if (hpPercent <= 50) {
+            line = taunts[50];
+        } else if (hpPercent <= 75) {
+            line = taunts[75];
+        }
+
+        dialogueEl.innerText = line;
+    }
+
+    function triggerHitEffects(damage) {
+        const bossIcon = document.getElementById('boss-icon');
+        const wrapper = document.getElementById('boss-avatar-wrapper');
+
+        bossIcon.classList.remove('boss-hit-anim');
+        void bossIcon.offsetWidth;
+        bossIcon.classList.add('boss-hit-anim');
+
+        const floatNum = document.createElement('div');
+        floatNum.className = 'damage-float-num';
+        floatNum.innerText = `-${damage}`;
+        wrapper.appendChild(floatNum);
+
+        setTimeout(() => { floatNum.remove(); }, 1500);
+        playHitSound();
+    }
+
+    function playHitSound() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(160, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.3);
+
+            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        } catch (e) { console.log("Audio play error:", e); }
+    }
+
+    function playVictoryFanfare() {
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) return;
+            const ctx = new AudioContext();
+            const notes = [
+                { f: 523.25, d: 0.15, t: 0 },
+                { f: 659.25, d: 0.15, t: 0.15 },
+                { f: 783.99, d: 0.15, t: 0.30 },
+                { f: 1046.50, d: 0.6, t: 0.45 }
+            ];
+            notes.forEach(note => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(note.f, ctx.currentTime + note.t);
+                gain.gain.setValueAtTime(0.3, ctx.currentTime + note.t);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + note.t + note.d);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime + note.t);
+                osc.stop(ctx.currentTime + note.t + note.d);
+            });
+        } catch (e) { console.log("Audio play error:", e); }
+    }
+
+    let confettiInterval;
+    function startConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const particles = [];
+        const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899'];
+
+        for (let i = 0; i < 120; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height - canvas.height,
+                size: Math.random() * 8 + 4,
+                color: colors[Math.floor(Math.random() * colors.length)],
+                vy: Math.random() * 4 + 2,
+                vx: Math.random() * 2 - 1
+            });
+        }
+
+        clearInterval(confettiInterval);
+        confettiInterval = setInterval(() => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.y += p.vy; p.x += p.vx;
+                if (p.y > canvas.height) p.y = -10;
+                ctx.fillStyle = p.color;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+        }, 20);
+    }
+
+    function stopConfetti() {
+        clearInterval(confettiInterval);
+        const canvas = document.getElementById('confetti-canvas');
+        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 初始化程序
+    initBossDropdown();
+    fetchSpreadsheetData();
+    setInterval(fetchSpreadsheetData, 5000);
+</script>
+</body>
+</html>

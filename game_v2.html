@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分數乘以整數大挑戰</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            font-weight: bold;
+            padding: 0 4px;
+            font-size: 1.25rem;
+        }
+        .numerator { border-bottom: 2px solid #374151; padding-bottom: 1px; }
+        .denominator { padding-top: 1px; }
+    </style>
+</head>
+<body class="bg-indigo-50 min-h-screen flex items-center justify-center p-4">
+
+    <!-- 遊戲主容器 -->
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 max-w-lg w-full border-4 border-indigo-200">
+        
+        <!-- 階段 1: 玩家登入與設定 -->
+        <div id="start-screen" class="space-y-6">
+            <div class="text-center">
+                <h1 class="text-3xl font-extrabold text-indigo-600 mb-2">分數 × 整數 挑戰賽 🧮</h1>
+                <p class="text-gray-500 text-sm">看總分數圓形圖，輕鬆學會分數乘法！</p>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">學生姓名</label>
+                    <input type="text" id="player-name" placeholder="請輸入姓名" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">學號 (1 ~ 33)</label>
+                    <select id="student-id" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none bg-white">
+                        <!-- 動態生成 1 - 33 純數字 -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">選擇角色頭像</label>
+                    <div id="avatar-grid" class="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                        <!-- 16 個頭像選項 -->
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition duration-200 shadow-md">
+                開始挑戰 🚀
+            </button>
+        </div>
+
+        <!-- 階段 2: 無限答題介面 -->
+        <div id="quiz-screen" class="hidden space-y-5">
+            <div class="flex justify-between items-center bg-indigo-50 p-3 rounded-lg text-sm font-semibold text-indigo-700">
+                <div class="flex items-center gap-2">
+                    <span id="display-avatar" class="text-2xl">🐶</span>
+                    <span id="display-player">--</span>
+                </div>
+                <div>已答：<span id="q-count">0</span> 題</div>
+                <div>得分：<span id="score-val" class="text-indigo-600 font-bold">0</span></div>
+            </div>
+
+            <!-- 時間與背景上傳狀態提示 -->
+            <div class="flex justify-between items-center text-xs text-gray-500 px-1">
+                <span>⏱️ 耗時：<span id="timer-text">0</span> 秒</span>
+                <span id="sync-status" class="text-emerald-600 font-medium">🟢 每 10 秒自動同步數據</span>
+            </div>
+
+            <!-- 題目區域 -->
+            <div class="text-center py-6 bg-amber-50 rounded-xl border-2 border-amber-200 shadow-inner">
+                <div class="text-gray-500 text-xs mb-3 font-semibold">請計算最簡分數或帶分數結果：</div>
+                <div id="question-box" class="text-3xl flex items-center justify-center gap-2">
+                    <!-- 題目格式：分數 × 整數 -->
+                </div>
+            </div>
+
+            <!-- 答錯罰停提示標籤 -->
+            <div id="penalty-notice" class="hidden text-center text-sm font-bold text-rose-600 bg-rose-50 border-2 border-rose-200 py-2 rounded-xl animate-pulse">
+                ⏳ 答錯罰停中：2 秒
+            </div>
+
+            <!-- 選項區域 -->
+            <div id="options-box" class="grid grid-cols-2 gap-3">
+                <!-- 動態選項 -->
+            </div>
+
+            <!-- 答錯時顯示的總分數圓形圖提示區 -->
+            <div id="hint-box" class="hidden bg-indigo-50 border-2 border-indigo-300 rounded-xl p-4 text-left space-y-3 transition-all duration-300">
+                <div class="flex items-center gap-1.5 text-indigo-800 font-bold text-sm">
+                    <span class="text-lg">🍕</span>
+                    <span>總分數圓形圖提示：</span>
+                </div>
+                <p class="text-gray-600 text-xs leading-relaxed">
+                    這題乘積約簡後為假分數 <span class="font-bold text-indigo-600"><span id="hint-sim-num"></span>/<span id="hint-sim-den"></span></span>，對應的圓形圖如下（每個圓分成 <span id="hint-den-text"></span> 份）：
+                </p>
+                <!-- 圓形圖 SVG 容器 -->
+                <div id="hint-diagram" class="flex flex-wrap gap-2.5 justify-center py-2"></div>
+                <div class="text-xs text-indigo-800 bg-white p-2.5 rounded-lg border border-indigo-100 font-medium">
+                    🔍 <strong>觀察提示：</strong>圖中共有 <span id="hint-full-count" class="font-bold text-amber-600"></span> 個完整的圓與扇形，換算成帶分數再選一次喔！
+                </div>
+            </div>
+
+            <button onclick="endGame()" class="w-full mt-2 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-xl transition text-sm">
+                結束答題並看成績 🏁
+            </button>
+        </div>
+
+        <!-- 階段 3: 結算頁面 -->
+        <div id="result-screen" class="hidden text-center space-y-6">
+            <div class="text-5xl animate-bounce">🏆</div>
+            <h2 class="text-2xl font-bold text-gray-800">挑戰結束！ 🎉</h2>
+            
+            <div class="bg-gray-50 p-4 rounded-xl space-y-2 text-left text-sm text-gray-600">
+                <p>👤 玩家：<span id="res-name" class="font-bold text-gray-800"></span> (學號: <span id="res-id"></span>)</p>
+                <p>🎯 最終得分：<span id="res-score" class="font-bold text-indigo-600 text-lg"></span> 分</p>
+                <p>✅ 答對題數：<span id="res-correct" class="font-bold text-emerald-600"></span> / <span id="res-total"></span> 題</p>
+                <p>⏱️ 總耗時：<span id="res-time" class="font-bold text-gray-800"></span> 秒</p>
+            </div>
+
+            <div id="upload-status" class="text-sm font-medium text-indigo-600">
+                正在進行最終成績同步...
+            </div>
+
+            <button onclick="resetGame()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition">
+                再玩一次 🔄
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // 📌 請替換為你的 Google Apps Script Web App URL
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxBF9CfL5rKKLA8Ko0MmwK_hiax_oml-XKtDKFWGNEau7HFAly0Ezvp-SEhgDgItqAHHQ/exec";
+
+        const AVATARS = ['🐶', '🐱', '🦊', '🤖', '🚀', '🦄', '🐼', '🦁', '🐯', '🐰', '🐸', '🐵', '🐻', '🐨', '🐲', '👾'];
+        let selectedAvatar = '🐶';
+        
+        let totalQuestions = 0;
+        let correctCount = 0;
+        let score = 0;
+        let startTime = 0;
+        let timeTaken = 0;
+        
+        let timerInterval = null;
+        let syncInterval = null;
+        let penaltyTimer = null;
+        let currentCorrectAnswer = "";
+        let currentQuestionData = { n: 0, d: 0, w: 0 };
+        let isFirstAttempt = true;
+
+        // --- Web Audio API 音效產生器 ---
+        let audioCtx = null;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playCorrectSound() {
+            try {
+                const ctx = getAudioContext();
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((freq, index) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    
+                    const start = ctx.currentTime + index * 0.07;
+                    gain.gain.setValueAtTime(0.25, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + 0.15);
+                });
+            } catch (e) { console.log(e); }
+        }
+
+        function playWrongSound() {
+            try {
+                const ctx = getAudioContext();
+                const notes = [185.00, 146.83];
+                notes.forEach((freq, index) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.value = freq;
+                    
+                    const start = ctx.currentTime + index * 0.1;
+                    gain.gain.setValueAtTime(0.2, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + 0.18);
+                });
+            } catch (e) { console.log(e); }
+        }
+
+        function playCheerSound() {
+            try {
+                const ctx = getAudioContext();
+                const fanfare = [
+                    { f: 392.00, t: 0, d: 0.12 },
+                    { f: 523.25, t: 0.10, d: 0.12 },
+                    { f: 659.25, t: 0.20, d: 0.12 },
+                    { f: 783.99, t: 0.30, d: 0.25 },
+                    { f: 1046.50, t: 0.45, d: 0.8 }
+                ];
+
+                fanfare.forEach(note => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = note.f;
+                    
+                    const start = ctx.currentTime + note.t;
+                    gain.gain.setValueAtTime(0.3, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + note.d);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + note.d);
+                });
+
+                [523.25, 659.25, 783.99, 1046.50].forEach(f => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = f;
+                    
+                    const start = ctx.currentTime + 0.45;
+                    gain.gain.setValueAtTime(0.15, start);
+                    gain.gain.exponentialRampToValueAtTime(0.001, start + 1.2);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(start + 1.2);
+                });
+            } catch (e) { console.log(e); }
+        }
+
+        window.onload = () => {
+            const idSelect = document.getElementById('student-id');
+            for (let i = 1; i <= 33; i++) {
+                const opt = document.createElement('option');
+                opt.value = i;
+                opt.innerText = i;
+                idSelect.appendChild(opt);
+            }
+
+            const avatarGrid = document.getElementById('avatar-grid');
+            AVATARS.forEach((avatar, index) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.innerText = avatar;
+                btn.className = `avatar-btn text-2xl p-1.5 border-2 rounded-xl transition ${index === 0 ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}`;
+                btn.onclick = () => selectAvatar(avatar, btn);
+                avatarGrid.appendChild(btn);
+            });
+        };
+
+        function selectAvatar(avatar, btnEl) {
+            selectedAvatar = avatar;
+            document.querySelectorAll('.avatar-btn').forEach(b => {
+                b.classList.remove('border-indigo-500', 'bg-indigo-50');
+                b.classList.add('border-gray-200');
+            });
+            btnEl.classList.add('border-indigo-500', 'bg-indigo-50');
+            btnEl.classList.remove('border-gray-200');
+        }
+
+        function gcd(a, b) {
+            return b === 0 ? a : gcd(b, a % b);
+        }
+
+        function toMixedFractionStr(num, den) {
+            const common = gcd(num, den);
+            let n = num / common;
+            let d = den / common;
+
+            if (d === 1) return `${n}`;
+            if (n < d) return `${n}/${d}`;
+
+            const whole = Math.floor(n / d);
+            const rem = n % d;
+            return rem === 0 ? `${whole}` : `${whole} ${rem}/${d}`;
+        }
+
+        function renderFractionHTML(num, den) {
+            return `<div class="fraction"><span class="numerator">${num}</span><span class="denominator">${den}</span></div>`;
+        }
+
+        function renderAnswerHTML(str) {
+            if (!str.includes('/')) {
+                return `<span class="text-xl font-bold">${str}</span>`;
+            }
+            if (str.includes(' ')) {
+                const [whole, frac] = str.split(' ');
+                const [n, d] = frac.split('/');
+                return `<span class="text-xl font-bold mr-1">${whole}</span>${renderFractionHTML(n, d)}`;
+            }
+            const [n, d] = str.split('/');
+            return renderFractionHTML(n, d);
+        }
+
+        function createPieChartSVG(fillCount, totalSlices, size = 56) {
+            const cx = size / 2, cy = size / 2, r = size / 2 - 3;
+            
+            if (totalSlices === 1) {
+                const fill = fillCount >= 1 ? "#6366f1" : "#f3f4f6";
+                return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+                    <circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="#374151" stroke-width="1.5" />
+                </svg>`;
+            }
+
+            let paths = [];
+            for (let k = 0; k < totalSlices; k++) {
+                const startAngle = (k * (360 / totalSlices) - 90) * (Math.PI / 180);
+                const endAngle = ((k + 1) * (360 / totalSlices) - 90) * (Math.PI / 180);
+
+                const x1 = cx + r * Math.cos(startAngle);
+                const y1 = cy + r * Math.sin(startAngle);
+                const x2 = cx + r * Math.cos(endAngle);
+                const y2 = cy + r * Math.sin(endAngle);
+
+                const largeArc = (360 / totalSlices) > 180 ? 1 : 0;
+                const isFilled = k < fillCount;
+                const fillColor = isFilled ? "#6366f1" : "#f3f4f6";
+
+                const pathData = `M ${cx},${cy} L ${x1.toFixed(2)},${y1.toFixed(2)} A ${r},${r} 0 ${largeArc},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z`;
+                paths.push(`<path d="${pathData}" fill="${fillColor}" stroke="#374151" stroke-width="1.5" />`);
+            }
+
+            return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths.join('')}</svg>`;
+        }
+
+        function renderVisualHint(n, d, w) {
+            const rawNum = n * w;
+            const rawDen = d;
+            const common = gcd(rawNum, rawDen);
+            const simNum = rawNum / common;
+            const simDen = rawDen / common;
+
+            document.getElementById('hint-sim-num').innerText = simNum;
+            document.getElementById('hint-sim-den').innerText = simDen;
+            document.getElementById('hint-den-text').innerText = simDen;
+            document.getElementById('hint-full-count').innerText = `${simNum}/${simDen}`;
+
+            const diagramBox = document.getElementById('hint-diagram');
+            diagramBox.innerHTML = '';
+
+            let remainingSlices = simNum;
+            const totalCircles = Math.ceil(simNum / simDen);
+
+            for (let i = 0; i < totalCircles; i++) {
+                const fillCount = Math.min(simDen, remainingSlices);
+                remainingSlices -= fillCount;
+
+                const circleContainer = document.createElement('div');
+                circleContainer.className = "flex flex-col items-center bg-white p-2 rounded-xl border border-indigo-200 shadow-sm";
+                
+                const label = document.createElement('span');
+                label.className = "text-[10px] text-gray-500 mb-1 font-bold";
+                label.innerText = `${fillCount}/${simDen}`;
+
+                const pieSVG = createPieChartSVG(fillCount, simDen, 56);
+
+                circleContainer.appendChild(label);
+                circleContainer.innerHTML += pieSVG;
+                diagramBox.appendChild(circleContainer);
+            }
+        }
+
+        function generateQuestion() {
+            isFirstAttempt = true;
+            if (penaltyTimer) clearInterval(penaltyTimer);
+            document.getElementById('penalty-notice').classList.add('hidden');
+            document.getElementById('hint-box').classList.add('hidden');
+
+            const d = Math.floor(Math.random() * 8) + 2; // 分母: 2 ~ 9
+            const n = Math.floor(Math.random() * (d - 1)) + 1; // 分子: 1 ~ d-1
+            const w = Math.floor(Math.random() * 8) + 2; // 整數: 2 ~ 9
+
+            currentQuestionData = { n, d, w };
+            const rawNum = n * w;
+            const rawDen = d;
+
+            currentCorrectAnswer = toMixedFractionStr(rawNum, rawDen);
+
+            document.getElementById('question-box').innerHTML = 
+                `${renderFractionHTML(n, d)} <span class="text-indigo-500 font-bold mx-1">×</span> <span class="text-3xl font-bold">${w}</span>`;
+
+            let options = new Set([currentCorrectAnswer]);
+            while (options.size < 4) {
+                let fakeN = Math.floor(Math.random() * 25) + 1;
+                let fakeD = Math.floor(Math.random() * 8) + 2;
+                options.add(toMixedFractionStr(fakeN, fakeD));
+            }
+
+            const optionsArray = Array.from(options).sort(() => Math.random() - 0.5);
+            const optionsBox = document.getElementById('options-box');
+            optionsBox.innerHTML = '';
+
+            optionsArray.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn p-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 border-2 border-indigo-200 rounded-xl font-bold transition flex justify-center items-center h-16";
+                btn.innerHTML = renderAnswerHTML(opt);
+                btn.onclick = () => checkAnswer(opt, btn);
+                optionsBox.appendChild(btn);
+            });
+        }
+
+        function startGame() {
+            const name = document.getElementById('player-name').value.trim();
+            if (!name) {
+                alert('請輸入姓名！');
+                return;
+            }
+
+            getAudioContext();
+
+            score = 0;
+            correctCount = 0;
+            totalQuestions = 0;
+            startTime = Date.now();
+            timeTaken = 0;
+
+            document.getElementById('display-player').innerText = name;
+            document.getElementById('display-avatar').innerText = selectedAvatar;
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('q-count').innerText = 0;
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('quiz-screen').classList.remove('hidden');
+
+            timerInterval = setInterval(() => {
+                timeTaken = Math.round((Date.now() - startTime) / 1000);
+                document.getElementById('timer-text').innerText = timeTaken;
+            }, 1000);
+
+            syncInterval = setInterval(() => {
+                sendDataToGoogleSheet(true);
+            }, 10000);
+
+            generateQuestion();
+        }
+
+        function checkAnswer(selectedOpt, btnEl) {
+            if (selectedOpt === currentCorrectAnswer) {
+                playCorrectSound();
+
+                if (isFirstAttempt) {
+                    score += 10;
+                    correctCount++;
+                    document.getElementById('score-val').innerText = score;
+                }
+
+                totalQuestions++;
+                document.getElementById('q-count').innerText = totalQuestions;
+
+                btnEl.classList.remove('bg-indigo-50', 'hover:bg-indigo-100', 'border-indigo-200');
+                btnEl.classList.add('bg-emerald-500', 'text-white', 'border-emerald-600');
+
+                // 停用所有按鈕準備進入下一題
+                document.querySelectorAll('.option-btn').forEach(b => b.disabled = true);
+
+                setTimeout(() => {
+                    generateQuestion();
+                }, 500);
+
+            } else {
+                playWrongSound();
+                isFirstAttempt = false;
+
+                // 1. 將被點選的錯誤選項標記為已選錯並禁用
+                btnEl.dataset.wrong = "true";
+                btnEl.classList.remove('bg-indigo-50', 'hover:bg-indigo-100', 'border-indigo-200', 'text-indigo-900');
+                btnEl.classList.add('bg-rose-100', 'border-rose-300', 'text-rose-400', 'cursor-not-allowed', 'opacity-60');
+
+                // 2. 顯示圓形圖視覺提示
+                renderVisualHint(currentQuestionData.n, currentQuestionData.d, currentQuestionData.w);
+                document.getElementById('hint-box').classList.remove('hidden');
+
+                // 3. 🚨 執行答錯罰停 2 秒機制
+                const allBtns = document.querySelectorAll('.option-btn');
+                allBtns.forEach(b => b.disabled = true); // 暫時鎖定所有選項
+
+                let penaltySeconds = 2;
+                const penaltyNotice = document.getElementById('penalty-notice');
+                penaltyNotice.innerText = `⏳ 答錯罰停中：${penaltySeconds} 秒`;
+                penaltyNotice.classList.remove('hidden');
+
+                if (penaltyTimer) clearInterval(penaltyTimer);
+                penaltyTimer = setInterval(() => {
+                    penaltySeconds--;
+                    if (penaltySeconds > 0) {
+                        penaltyNotice.innerText = `⏳ 答錯罰停中：${penaltySeconds} 秒`;
+                    } else {
+                        clearInterval(penaltyTimer);
+                        penaltyNotice.classList.add('hidden');
+
+                        // 2 秒罰停結束，重新開放未答錯的選項
+                        allBtns.forEach(b => {
+                            if (b.dataset.wrong !== "true") {
+                                b.disabled = false;
+                            }
+                        });
+                    }
+                }, 1000);
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            clearInterval(syncInterval);
+            if (penaltyTimer) clearInterval(penaltyTimer);
+
+            playCheerSound();
+
+            const name = document.getElementById('player-name').value.trim();
+            const studentId = document.getElementById('student-id').value;
+
+            document.getElementById('quiz-screen').classList.add('hidden');
+            document.getElementById('result-screen').classList.remove('hidden');
+
+            document.getElementById('res-name').innerText = name;
+            document.getElementById('res-id').innerText = studentId;
+            document.getElementById('res-score').innerText = score;
+            document.getElementById('res-correct').innerText = correctCount;
+            document.getElementById('res-total').innerText = totalQuestions;
+            document.getElementById('res-time').innerText = timeTaken;
+
+            sendDataToGoogleSheet(false);
+        }
+
+        function sendDataToGoogleSheet(isBackground = false) {
+            const name = document.getElementById('player-name').value.trim();
+            const studentId = document.getElementById('student-id').value;
+            const syncStatus = document.getElementById('sync-status');
+            const uploadStatus = document.getElementById('upload-status');
+
+            if (GOOGLE_SCRIPT_URL === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE") {
+                if (!isBackground) {
+                    uploadStatus.className = "text-sm font-medium text-red-500";
+                    uploadStatus.innerText = "⚠️ 請先設定 Google Apps Script URL！";
+                }
+                return;
+            }
+
+            if (isBackground) {
+                syncStatus.innerText = "🔄 同步中...";
+            }
+
+            const payload = {
+                name: name,
+                studentId: studentId,
+                score: score,
+                correctCount: correctCount,
+                totalQuestions: totalQuestions,
+                timeTaken: timeTaken
+            };
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                const nowTime = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+                if (isBackground) {
+                    syncStatus.innerText = `🟢 上次同步：${nowTime}`;
+                } else {
+                    uploadStatus.className = "text-sm font-medium text-green-600";
+                    uploadStatus.innerText = "✅ 成績已成功更新至 Google 試算表！";
+                }
+            })
+            .catch(() => {
+                if (isBackground) {
+                    syncStatus.innerText = "🟡 同步暫時失敗，稍後重試";
+                } else {
+                    uploadStatus.className = "text-sm font-medium text-red-500";
+                    uploadStatus.innerText = "❌ 上傳失敗，請檢查網路連線。";
+                }
+            });
+        }
+
+        function resetGame() {
+            document.getElementById('result-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
